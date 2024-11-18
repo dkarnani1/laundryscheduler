@@ -18,7 +18,7 @@ const sns = new AWS.SNS();
 const app = express();
 app.use(cors());
 app.use(express.json());
-const PORT = 3001;
+const PORT = 3002;
 
 // Database setup
 const db = new sqlite3.Database(path.join(__dirname, 'laundry.db'), (err) => {
