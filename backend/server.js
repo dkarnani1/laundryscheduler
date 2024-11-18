@@ -15,12 +15,12 @@ const snsClient = new SNSClient({
   }
 });
 
-const app = express();
 app.use(cors({
-  origin: 'http://18.216.15.211',
+  origin: ['https://laundryscheduler.com', 'https://www.laundryscheduler.com'],
   methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
   credentials: true
 }));
+
 app.use(express.json());
 const PORT = 3002;
 
