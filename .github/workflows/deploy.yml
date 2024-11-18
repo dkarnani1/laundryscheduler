@@ -14,11 +14,24 @@ jobs:
         with:
           node-version: '18'
           
+      - name: Create Frontend Environment File
+        run: |
+          cd frontend
+          echo "VITE_COGNITO_USER_POOL_ID=${{ secrets.VITE_COGNITO_USER_POOL_ID }}" >> .env
+          echo "VITE_COGNITO_CLIENT_ID=${{ secrets.VITE_COGNITO_CLIENT_ID }}" >> .env
+          
       - name: Install and Build Frontend
         run: |
           cd frontend
           npm install
           npm run build
+          
+      - name: Create Backend Environment File
+        run: |
+          cd backend
+          echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
           
       - name: Install Backend Dependencies
         run: |
@@ -31,7 +44,7 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "frontend/dist/*,backend/*"
+          source: "frontend/dist/.,backend/server.js,backend/package.json,backend/package-lock.json,backend/.env"
           target: "/home/ubuntu/app"
           strip_components: 1
           
@@ -43,5 +56,11 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ~/app
+            export PORT=3002
+            export AWS_REGION=${{ secrets.AWS_REGION }}
+            export AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+            export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
             npm install
-            pm2 restart all || pm2 start server.js
+            pm2 delete all || true
+            pm2 start server.js --name "laundryscheduler"
+            pm2 save

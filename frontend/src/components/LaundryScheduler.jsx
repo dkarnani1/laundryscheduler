@@ -60,7 +60,7 @@ const LaundryScheduler = ({ user }) => {
     const endTime = convertSlotToTimestamp(slot + BLOCK_DURATION, day);
   
     try {
-      const response = await fetch('http://localhost:3001/api/bookings', {
+      const response = await fetch('http://localhost:3002/api/bookings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -128,7 +128,7 @@ const LaundryScheduler = ({ user }) => {
 
   const fetchBookings = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/bookings');
+      const response = await fetch('http://localhost:3002/api/bookings');
       const data = await response.json();
       setBookings(data);  // The user_name field should now come correctly from the database
     } catch (error) {
@@ -505,7 +505,7 @@ const LaundryScheduler = ({ user }) => {
       }
   
       // Delete the main booking
-      const response = await fetch(`http://localhost:3001/api/bookings/${bookingId}`, {
+      const response = await fetch(`http://localhost:3002/api/bookings/${bookingId}`, {
         method: 'DELETE',
       });
   
@@ -515,7 +515,7 @@ const LaundryScheduler = ({ user }) => {
   
       // If there's a related booking, delete it too
       if (relatedBookingId) {
-        const relatedResponse = await fetch(`http://localhost:3001/api/bookings/${relatedBookingId}`, {
+        const relatedResponse = await fetch(`http://localhost:3002/api/bookings/${relatedBookingId}`, {
           method: 'DELETE',
         });
   

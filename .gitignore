@@ -3,3 +3,4 @@ backend/.env
 frontend/node_modules/
 */.env
 *.env
+backend/laundry.db
