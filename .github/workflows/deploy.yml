@@ -68,9 +68,9 @@ jobs:
             username: ubuntu
             key: ${{ secrets.SSH_PRIVATE_KEY }}
             script: |
-            sudo chmod 755 /home/ubuntu
-            sudo chown -R www-data:www-data ~/app/dist
-            sudo chmod -R 755 ~/app/dist
+              sudo chmod 755 /home/ubuntu
+              sudo chown -R www-data:www-data ~/app/dist
+              sudo chmod -R 755 ~/app/dist
             
       - name: Deploy
         uses: appleboy/ssh-action@master
