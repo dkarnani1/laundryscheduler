@@ -182,11 +182,6 @@ app.delete('/api/bookings/:id', (req, res) => {
   });
 });
 
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
 app.get('/api/users/name', (req, res) => {
   const { email } = req.query;
   
