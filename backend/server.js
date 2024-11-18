@@ -16,10 +16,12 @@ const snsClient = new SNSClient({
 });
 
 app.use(cors({
-  origin: ['https://laundryscheduler.com', 'https://www.laundryscheduler.com'],
+  origin: 'https://laundryscheduler.com',
   methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-  credentials: true
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+app.options('*', cors())
 
 app.use(express.json());
 const PORT = 3002;
