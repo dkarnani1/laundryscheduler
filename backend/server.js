@@ -285,3 +285,17 @@ function scheduleReminder(bookingId, userEmail, userName, machineType, endTime) 
     }, delay);
   }
 }
+
+const server = app.listen(port, '0.0.0.0', (err) => {
+  if (err) {
+      console.error('Error starting server:', err);
+      process.exit(1);
+  }
+  console.log(`Server running on port ${port}`);
+});
+
+process.on('SIGTERM', () => {
+  server.close(() => {
+      console.log('Server terminated');
+  });
+});
