@@ -1,14 +1,43 @@
-- name: Copy Files to EC2
-        uses: appleboy/scp-action@master
+name: Deploy to EC2
+on:
+  push:
+    branches: [ main ]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
         with:
-          host: ${{ secrets.HOST }}
-          username: ubuntu
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "frontend/dist/.,backend/server.js,backend/package.json,backend/package-lock.json,backend/.env"
-          target: "/home/ubuntu/app"
-          strip_components: 1
+          node-version: '18'
           
-      - name: Setup Directory Permissions
+      - name: Create Frontend Environment File
+        run: |
+          cd frontend
+          echo "VITE_COGNITO_USER_POOL_ID=${{ secrets.VITE_COGNITO_USER_POOL_ID }}" >> .env
+          echo "VITE_COGNITO_CLIENT_ID=${{ secrets.VITE_COGNITO_CLIENT_ID }}" >> .env
+          
+      - name: Install and Build Frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+          
+      - name: Create Backend Environment File
+        run: |
+          cd backend
+          echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
+          
+      - name: Install Backend Dependencies
+        run: |
+          cd backend
+          npm install
+          
+      - name: Setup Directory on EC2
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOST }}
@@ -19,7 +48,17 @@
             sudo mkdir -p ~/app
             sudo chown -R ubuntu:ubuntu ~/app
             sudo chmod -R 755 ~/app
-            
+          
+      - name: Copy Files to EC2
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "frontend/dist/.,backend/server.js,backend/package.json,backend/package-lock.json,backend/.env"
+          target: "/home/ubuntu/app"
+          strip_components: 1
+          
       - name: Deploy
         uses: appleboy/ssh-action@master
         with:
