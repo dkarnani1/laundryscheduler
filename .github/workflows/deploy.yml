@@ -46,9 +46,10 @@ jobs:
           script: |
             sudo rm -rf ~/app/*
             sudo mkdir -p ~/app
-            sudo mkdir -p ~/app/dist
-            sudo chown -R www-data:www-data ~/app
-            sudo chmod -R 755 ~/app
+            sudo mkdir -p ~/app/dist/assets
+            sudo chown -R ubuntu:ubuntu ~/app/*
+            sudo chmod -R 777 ~/app
+            sudo chmod -R 777 /home/ubuntu/app
           
       - name: Copy Files to EC2
         uses: appleboy/scp-action@master
