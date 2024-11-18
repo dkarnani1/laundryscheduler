@@ -4,6 +4,7 @@ const path = require('path');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { SNSClient, PublishCommand } = require("@aws-sdk/client-sns");
+const app = express();
 
 dotenv.config();
 
