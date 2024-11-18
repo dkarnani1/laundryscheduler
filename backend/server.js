@@ -18,7 +18,7 @@ const sns = new AWS.SNS();
 const app = express();
 app.use(cors());
 app.use(express.json());
-const PORT = process.env.PORT || 3001;
+const PORT = 3001;
 
 // Database setup
 const db = new sqlite3.Database(path.join(__dirname, 'laundry.db'), (err) => {
@@ -286,6 +286,10 @@ function scheduleReminder(bookingId, userEmail, userName, machineType, endTime) 
     }, delay);
   }
 }
+
+app.get('/', (req, res) => {
+  res.send('Server is running');
+});
 
 const server = app.listen(PORT, '0.0.0.0', (err) => {
   if (err) {
