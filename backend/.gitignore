@@ -1,3 +1,4 @@
 node_modules\n.env\nlaundry.db
 node_modules
 .env
+/.env
