@@ -1,25 +1,73 @@
 import { Amplify } from 'aws-amplify';
 import { 
-  signIn as awsSignIn, 
-  signUp as awsSignUp, 
-  signOut as awsSignOut, 
-  getCurrentUser as awsGetCurrentUser, 
+  signIn as amplifySignIn, 
+  signUp as amplifySignUp, 
+  signOut as amplifySignOut, 
+  getCurrentUser, 
   fetchUserAttributes,
-  confirmSignUp as awsConfirmSignUp 
+  confirmSignUp as amplifyConfirmSignUp,
+  fetchAuthSession,
+  updateUserAttributes as amplifyUpdateUserAttributes
 } from 'aws-amplify/auth';
 
-// Initialize Amplify
-const config = {
+// Configure Amplify
+Amplify.configure({
   Auth: {
     Cognito: {
-      region: 'us-east-2',
       userPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID,
-      userPoolClientId: import.meta.env.VITE_COGNITO_CLIENT_ID
+      userPoolClientId: import.meta.env.VITE_COGNITO_CLIENT_ID,
+      identityPoolId: import.meta.env.VITE_IDENTITY_POOL_ID,
+      region: 'us-east-2'
+    }
+  },
+  Storage: {
+    S3: {
+      bucket: import.meta.env.VITE_S3_BUCKET,
+      region: 'us-east-2',
+      credentials: () => fetchAuthSession().then(session => session.credentials)
     }
   }
-};
+});
 
-Amplify.configure(config);
+// Keep track of stored user information
+let cachedUserInfo = null;
+let tokenRefreshInProgress = false;
+let cachedProfilePictureUrl = null;
+let cachedUserName = null;
+
+export async function updateUserAttributes({ userAttributes }) {
+  if (!userAttributes || typeof userAttributes !== 'object') {
+    throw new Error('User attributes must be a valid object');
+  }
+
+  try {
+    await amplifyUpdateUserAttributes({
+      userAttributes: userAttributes
+    });
+    
+    // Clear cached user info after updating attributes
+    cachedUserInfo = null;
+    
+    return true;
+  } catch (error) {
+    console.error('Failed to update user attributes:', error);
+    throw error;
+  }
+}
+
+export const getAuthToken = async () => {
+  try {
+    // Try to get a fresh session
+    const session = await fetchAuthSession({ forceRefresh: true });
+    if (!session?.tokens?.accessToken) {
+      throw new Error('No access token found');
+    }
+    return session.tokens.accessToken.toString();
+  } catch (error) {
+    console.error('Error getting auth token:', error);
+    return null;
+  }
+};
 
 export const signUp = async (email, password, phoneNumber, name) => {
   try {    
@@ -35,15 +83,15 @@ export const signUp = async (email, password, phoneNumber, name) => {
           email,
           phone_number: phoneNumber,
           given_name: name,
-          name: name // Add both given_name and name
+          name: name
         },
-        autoSignIn: { // Enable auto sign in after sign up
+        autoSignIn: {
           enabled: false
         }
       }
     };
 
-    const { user } = await awsSignUp(signUpParams);
+    const { user } = await amplifySignUp(signUpParams);
     return user;
   } catch (error) {
     console.error('Detailed signup error:', error);
@@ -53,20 +101,24 @@ export const signUp = async (email, password, phoneNumber, name) => {
 
 export const checkAndClearExistingSession = async () => {
   try {
-    const currentUser = await awsGetCurrentUser().catch(() => null);
+    const currentUser = await getCurrentUser().catch(() => null);
     if (currentUser) {
       await signOut();
     }
   } catch (error) {
-    // If there's no current user, this is fine
     console.log('No existing session found');
   }
 };
 
 export const signIn = async (email, password) => {
   try {
-    const signInOutput = await awsSignIn({
-      username: email,  // Use email directly as username
+    // Clear cache on new sign in
+    cachedUserInfo = null;
+    cachedProfilePictureUrl = null;
+    cachedUserName = null;
+    
+    const signInOutput = await amplifySignIn({
+      username: email,
       password: password,
     });
     return signInOutput;
@@ -78,12 +130,15 @@ export const signIn = async (email, password) => {
 
 export const signOut = async () => {
   try {
-    await awsSignOut({ global: true }); // Add global: true to clear all auth states
+    await amplifySignOut({ global: true });
     localStorage.removeItem('lastUsername');
-    
-    // Clear local browser storage
     localStorage.clear();
     sessionStorage.clear();
+    
+    // Clear cached user
+    cachedUserInfo = null;
+    cachedProfilePictureUrl = null;
+    cachedUserName = null;
   } catch (error) {
     console.error('Error signing out:', error);
     throw error;
@@ -92,39 +147,135 @@ export const signOut = async () => {
 
 export const clearAuthTokens = async () => {
   try {
-    // Clear all cached tokens
     localStorage.clear();
     sessionStorage.clear();
-    // Remove the page reload
+    cachedUserInfo = null;
+    cachedProfilePictureUrl = null;
+    cachedUserName = null;
   } catch (error) {
     console.error('Error clearing auth tokens:', error);
   }
 };
 
-export const getCurrentUser = async () => {
+// Fetch the user's profile picture and name from the server
+export const fetchProfilePicture = async () => {
+  if (cachedProfilePictureUrl) {
+    return {
+      picture: cachedProfilePictureUrl,
+      userName: cachedUserName
+    };
+  }
+  
   try {
-    const currentUser = await awsGetCurrentUser();
-    const attributes = await fetchUserAttributes();
-    
-    // console.log('Current user attributes:', attributes);
-    
-    // Verify we have the name
-    if (!attributes.given_name) {
-      console.warn('given_name attribute is missing from user attributes');
+    const token = await getAuthToken();
+    if (!token) {
+      throw new Error('No authentication token available');
     }
     
-    return { 
+    const apiUrl = import.meta.env.VITE_APP_API_URL;
+    // Convert HTTPS to HTTP for localhost
+    const baseUrl = apiUrl.includes('localhost') ? apiUrl.replace('https://', 'http://') : apiUrl;
+    
+    const response = await fetch(`${baseUrl}/api/user/picture`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to fetch profile picture');
+    }
+    
+    const data = await response.json();
+    if (data.picture) {
+      cachedProfilePictureUrl = data.picture;
+    }
+    if (data.userName) {
+      cachedUserName = data.userName;
+    }
+    
+    return {
+      picture: data.picture || '',
+      userName: data.userName || ''
+    };
+  } catch (error) {
+    console.error('Error fetching profile picture:', error);
+    return {
+      picture: '',
+      userName: ''
+    };
+  }
+};
+
+/**
+ * Gets the current authenticated user with attributes.
+ * Attempts to refresh tokens if needed.
+ */
+export const getCurrentAuthenticatedUser = async () => {
+  // If refresh is already in progress, wait for it to complete
+  if (tokenRefreshInProgress) {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return getCurrentAuthenticatedUser();
+  }
+  
+  try {
+    // If we have cached user info and no forced refresh, return it
+    if (cachedUserInfo) {
+      return cachedUserInfo;
+    }
+    
+    // Get current user and attributes
+    const currentUser = await getCurrentUser();
+    
+    // Force session refresh to ensure we have valid tokens
+    tokenRefreshInProgress = true;
+    await fetchAuthSession({ forceRefresh: true });
+    tokenRefreshInProgress = false;
+    
+    // Now fetch attributes with refreshed session
+    const attributes = await fetchUserAttributes();
+    
+    // Fetch the profile picture and name from the server
+    const userData = await fetchProfilePicture();
+    
+    // Create user info object
+    const userInfo = { 
       ...currentUser, 
       attributes: {
         ...attributes,
-        // Ensure we always have a display name
-        given_name: attributes.name
+        given_name: attributes.name || attributes.given_name || userData.userName,
+        picture: userData.picture // Add the profile picture from the server
       }
     };
+    
+    // Cache the user info
+    cachedUserInfo = userInfo;
+    
+    return userInfo;
   } catch (error) {
-    if (error.name === 'UserUnAuthenticatedException') {
+    tokenRefreshInProgress = false;
+    cachedUserInfo = null;
+    cachedProfilePictureUrl = null;
+    cachedUserName = null;
+    
+    // Handle various auth errors
+    if (
+      error.name === 'UserUnAuthenticatedException' || 
+      error.message?.includes('revoked') ||
+      error.message?.includes('expired') ||
+      error.code === 'NotAuthorizedException'
+    ) {
+      console.log('Session expired or revoked, redirecting to login');
+      // Explicitly sign out to clear any bad tokens
+      try {
+        await signOut();
+      } catch (e) {
+        // Ignore errors on sign out attempt
+      }
       return null;
     }
+    
     console.error('Error getting current user:', error);
     return null;
   }
@@ -132,8 +283,8 @@ export const getCurrentUser = async () => {
 
 export const confirmSignUp = async (email, code) => {
   try {
-    const { isSignUpComplete } = await awsConfirmSignUp({
-      username: email,  // Use email directly as username
+    const { isSignUpComplete } = await amplifyConfirmSignUp({
+      username: email,
       confirmationCode: code
     });
     return isSignUpComplete;

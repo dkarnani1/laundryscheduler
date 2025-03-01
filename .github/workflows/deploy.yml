@@ -6,18 +6,21 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       
       - name: Setup Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
           node-version: '18'
           
       - name: Create Frontend Environment File
         run: |
           cd frontend
+          echo "VITE_APP_API_URL=https://laundryscheduler.com" >> .env
           echo "VITE_COGNITO_USER_POOL_ID=${{ secrets.VITE_COGNITO_USER_POOL_ID }}" >> .env
           echo "VITE_COGNITO_CLIENT_ID=${{ secrets.VITE_COGNITO_CLIENT_ID }}" >> .env
+          echo "VITE_S3_BUCKET=${{ secrets.VITE_S3_BUCKET }}" >> .env
+          echo "VITE_IDENTITY_POOL_ID=${{ secrets.VITE_IDENTITY_POOL_ID }}" >> .env
           
       - name: Install and Build Frontend
         run: |
@@ -31,6 +34,8 @@ jobs:
           echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
           echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
           echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+          echo "NODE_ENV=production" >> .env
           
       - name: Install Backend Dependencies
         run: |
@@ -57,7 +62,7 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "frontend/dist/.,backend/server.js,backend/package.json,backend/package-lock.json,backend/.env"
+          source: "frontend/dist/.,frontend/.env,backend/server.js,backend/package.json,backend/package-lock.json,backend/.env"
           target: "/home/ubuntu/app"
           strip_components: 1
           
@@ -79,8 +84,9 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd ~/app
+            cd ~/app/backend
             export PORT=3002
+            export NODE_ENV=production
             export AWS_REGION=${{ secrets.AWS_REGION }}
             export AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
             export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
