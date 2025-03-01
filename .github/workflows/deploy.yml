@@ -62,7 +62,7 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "frontend/dist/.,frontend/.env,backend/server.js,backend/package.json,backend/package-lock.json,backend/.env"
+          source: "frontend/dist/.,frontend/.env,backend/"
           target: "/home/ubuntu/app"
           strip_components: 1
           
