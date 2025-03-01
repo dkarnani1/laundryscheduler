@@ -52,18 +52,28 @@ jobs:
             sudo rm -rf ~/app/*
             sudo mkdir -p ~/app
             sudo mkdir -p ~/app/dist/assets
-            sudo chown -R ubuntu:ubuntu ~/app/*
-            sudo chmod -R 777 ~/app
-            sudo chmod -R 777 /home/ubuntu/app
+            sudo mkdir -p ~/app/backend
+            sudo chown -R ubuntu:ubuntu ~/app
+            sudo chmod -R 755 ~/app
           
-      - name: Copy Files to EC2
+      - name: Copy Frontend Files
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.HOST }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "frontend/dist/.,frontend/.env,backend/"
+          source: "frontend/dist/.,frontend/.env"
           target: "/home/ubuntu/app"
+          strip_components: 1
+          
+      - name: Copy Backend Files 
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "backend/*"
+          target: "/home/ubuntu/app/backend"
           strip_components: 1
           
       - name: Fix Permissions
